@@ -28,6 +28,17 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState<{message: string, type: 'success' | 'error'} | null>(null);
 
+    
+  // PWA Install State
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isInstallable, setIsInstallable] = useState(false);
+  const [showPwaPrompt, setShowPwaPrompt] = useState(false);
+
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+      setToast({ message, type });
+      setTimeout(() => setToast(null), 3000);
+  };
+    
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
       setToast({ message, type });
       setTimeout(() => setToast(null), 3000);
