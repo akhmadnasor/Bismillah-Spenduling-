@@ -8,7 +8,6 @@ import { AdminDashboard } from './components/AdminDashboard';
 import { SuperAdminDashboard } from './components/SuperAdminDashboard';
 import { StudentFlow } from './components/StudentFlow';
 import { BackgroundShapes } from './components/BackgroundShapes';
-import { PWAInstallPrompt } from './components/PWAInstallPrompt';
 import { LogIn, Lock, Eye, EyeOff, Calendar, X, AlertTriangle } from 'lucide-react';
 import 'katex/dist/katex.min.css';
 
@@ -509,9 +508,6 @@ const App: React.FC = () => {
               </div>
           </div>
       )}
-
-      {/* PWA Install Prompt */}
-      <PWAInstallPrompt />
 
       {/* CUSTOM TOAST */}
       {toast && (
