@@ -630,10 +630,10 @@ export const ExamInterface: React.FC<ExamInterfaceProps> = ({
 
     setCheatingAttempts((prev) => {
       const next = prev + 1;
-      // Report to database so admin sees it in monitoring
-      db.reportViolation(user.id, exam.id, next).catch((err) =>
-        console.error("Failed to report violation", err),
-      );
+      // Berdasarkan saran untuk hemat kuota free tier Supabase: 
+      // Pelanggaran akan dikumpulkan via localStorage (di-handle oleh useEffect tersendiri) 
+      // dan hanya dikirim ketika selesai ujian (handleFinalSubmit).
+      // db.reportViolation(user.id, exam.id, next).catch(...)
       return next;
     });
   };

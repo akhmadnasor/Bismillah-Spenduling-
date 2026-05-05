@@ -108,8 +108,12 @@ export const db = {
   submitResult: async (result: ExamResult): Promise<void> => {
     // Optimization: Bulk upsert to finalize result and sync massal
     await supabase.from('results').upsert({
-        exam_id: result.examId, peserta_id: result.studentId, score: result.score, 
-        answers: result.answers || [], status: result.status || 'finished',
+        exam_id: result.examId,
+        peserta_id: result.studentId,
+        score: result.score,
+        answers: result.answers || [],
+        status: result.status || 'finished',
+        violation_count: result.cheatingAttempts || 0,
         finish_time: new Date().toISOString()
     }, { onConflict: 'exam_id,peserta_id' });
   },

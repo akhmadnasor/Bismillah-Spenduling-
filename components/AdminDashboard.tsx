@@ -544,13 +544,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
   useEffect(() => {
     loadData();
     
-    // Auto refresh for Monitoring & Anti-Cheat tab
-    let interval: any;
-    if (activeTab === 'MONITORING' || activeTab === 'ANTI_CHEAT') {
-        interval = setInterval(() => {
-            refreshMonitoringData();
-        }, 10000); // Increased to 10 seconds to save egress
-    }
+    // Auto refresh disabled: 
+    // Untuk paket Supabase Free Plan (300 siswa = total 600 mapel/hari), 
+    // mutlak dimatikan fitur polling/realtime untuk Monitoring. 
+    // Admin secara manual menekan tombol Refresh jika perlu.
     
     // Ping to measure network latency to current server
     const checkPing = async () => {
@@ -568,7 +565,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
     const pingInterval = setInterval(checkPing, 5000);
     
     return () => {
-        if (interval) clearInterval(interval);
         clearInterval(pingInterval);
     };
   }, [activeTab]);
