@@ -20,8 +20,14 @@ export const StudentFlow: React.FC<StudentFlowProps> = ({ user, onStartExam, onL
       return (localStorage.getItem('das_student_flow_step') as Step) || 'DASHBOARD';
   });
   const [selectedExam, setSelectedExam] = useState<Exam | null>(() => {
-      const saved = localStorage.getItem('das_student_flow_exam');
-      return saved ? JSON.parse(saved) : null;
+      try {
+          const saved = localStorage.getItem('das_student_flow_exam');
+          if (!saved || saved === 'undefined') return null;
+          return JSON.parse(saved);
+      } catch (e) {
+          localStorage.removeItem('das_student_flow_exam');
+          return null;
+      }
   });
 
   const [availableExams, setAvailableExams] = useState<Exam[]>([]);

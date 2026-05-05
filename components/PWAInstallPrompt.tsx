@@ -10,20 +10,28 @@ export const PWAInstallPrompt: React.FC = () => {
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
         if (!isMobile) return;
 
+        let timer: any;
         const handler = (e: Event) => {
             e.preventDefault();
             setDeferredPrompt(e);
-            setIsVisible(true);
             
-            // Sembunyikan otomatis setelah 15 detik
-            setTimeout(() => {
-                setIsVisible(false);
-            }, 15000);
+            const isDismissed = localStorage.getItem('das_pwa_dismissed') === 'true';
+            if (!isDismissed) {
+                setIsVisible(true);
+                // Sembunyikan otomatis setelah 15 detik
+                if (timer) clearTimeout(timer);
+                timer = setTimeout(() => {
+                    setIsVisible(false);
+                }, 15000);
+            }
         };
 
         window.addEventListener('beforeinstallprompt', handler);
 
-        return () => window.removeEventListener('beforeinstallprompt', handler);
+        return () => {
+            window.removeEventListener('beforeinstallprompt', handler);
+            if (timer) clearTimeout(timer);
+        };
     }, []);
 
     const handleInstallClick = async () => {
@@ -32,8 +40,14 @@ export const PWAInstallPrompt: React.FC = () => {
         const { outcome } = await deferredPrompt.userChoice;
         if (outcome === 'accepted') {
             setIsVisible(false);
+            localStorage.setItem('das_pwa_dismissed', 'true');
         }
         setDeferredPrompt(null);
+    };
+
+    const handleDismiss = () => {
+        setIsVisible(false);
+        localStorage.setItem('das_pwa_dismissed', 'true');
     };
 
     if (!isVisible) return null;
@@ -42,7 +56,7 @@ export const PWAInstallPrompt: React.FC = () => {
         <div className="fixed bottom-6 right-6 z-[999] animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="relative group">
                 <button 
-                    onClick={() => setIsVisible(false)}
+                    onClick={handleDismiss}
                     className="absolute -top-2 -right-2 bg-gray-800 text-white rounded-full p-1 shadow-lg hover:bg-gray-700 transition z-10"
                 >
                     <X size={12} />

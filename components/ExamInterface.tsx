@@ -246,17 +246,23 @@ export const ExamInterface: React.FC<ExamInterfaceProps> = ({
 
   // State for different answer types
   const [answers, setAnswers] = useState<any[]>(() => {
-    const saved = localStorage.getItem(answersKey);
-    return saved
-      ? JSON.parse(saved)
-      : new Array(activeQuestions.length).fill(null);
+    try {
+      const saved = localStorage.getItem(answersKey);
+      if (saved && saved !== 'undefined') return JSON.parse(saved);
+    } catch (e) {
+      console.error(e);
+    }
+    return new Array(activeQuestions.length).fill(null);
   });
 
   const [markedDoubts, setMarkedDoubts] = useState<boolean[]>(() => {
-    const saved = localStorage.getItem(doubtsKey);
-    return saved
-      ? JSON.parse(saved)
-      : new Array(activeQuestions.length).fill(false);
+    try {
+      const saved = localStorage.getItem(doubtsKey);
+      if (saved && saved !== 'undefined') return JSON.parse(saved);
+    } catch (e) {
+      console.error(e);
+    }
+    return new Array(activeQuestions.length).fill(false);
   });
   const [timeLeft, setTimeLeft] = useState(() => {
     const saved = localStorage.getItem(timeKey);

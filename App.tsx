@@ -90,17 +90,21 @@ const App: React.FC = () => {
           const savedUser = localStorage.getItem('das_user');
           const savedExam = localStorage.getItem('das_exam');
           
-          if (savedUser) {
+          if (savedUser && savedUser !== 'undefined') {
               const parsedUser = JSON.parse(savedUser);
               setCurrentUser(parsedUser);
           }
           
-          if (savedExam) {
+          if (savedExam && savedExam !== 'undefined') {
               const parsedExam = JSON.parse(savedExam);
               setActiveExam(parsedExam);
           }
       } catch (e) {
           console.error("Failed to restore session", e);
+          localStorage.removeItem('das_user');
+          localStorage.removeItem('das_exam');
+          setCurrentUser(null);
+          setActiveExam(null);
       }
   };
 
