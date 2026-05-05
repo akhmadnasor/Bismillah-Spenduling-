@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, UserRole, Exam, AppSettings } from './types';
 import { db } from './services/database'; // SWITCHED TO REAL DB
+import { isSupabaseConfigured } from './services/supabase';
 import { cacheManager, getSafeImageUrl } from './utils/cache'; 
 import { ExamInterface } from './components/ExamInterface';
 import { AdminDashboard } from './components/AdminDashboard';
@@ -48,6 +49,8 @@ const App: React.FC = () => {
     antiCheat: { isActive: true, freezeDurationSeconds: 15, alertText: 'Violation!', enableSound: true },
     showTokenToStudents: false
   });
+
+  const isSupabaseMissing = !import.meta.env.VITE_SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL === 'https://placeholder.supabase.co';
 
   useEffect(() => {
     cacheManager.initialize();
@@ -273,6 +276,17 @@ const App: React.FC = () => {
 
   return (
     <>
+      {!isSupabaseConfigured && (
+        <div className="fixed top-0 left-0 w-full z-[100] bg-red-600 border-b-4 border-red-700 text-white p-3 text-center text-sm font-bold shadow-xl flex flex-col items-center justify-center animate-pulse">
+            <span className="flex items-center space-x-2 text-base">
+                <AlertTriangle className="h-5 w-5" />
+                <span>PERINGATAN: KONEKSI DATABASE ERROR!</span>
+            </span>
+            <span className="mt-1 font-normal text-xs md:text-sm">
+                Gambar dan username/password dipastikan tidak sesuai atau tidak muncul karena Environment Variables (VITE_SUPABASE_URL & VITE_SUPABASE_ANON_KEY) belum ditambahkan di pengaturan Hosting Anda. Silakan tambahkan variabel tersebut lalu Re-deploy.
+            </span>
+        </div>
+      )}
       
       {!currentUser ? (
         <div className="min-h-screen relative font-sans overflow-hidden" style={loginBgStyle}>
@@ -303,6 +317,26 @@ const App: React.FC = () => {
           <div className="min-h-screen flex items-center justify-center p-4 pt-20">
               <div className="bg-white/95 backdrop-blur-sm p-8 md:p-12 rounded-2xl shadow-2xl w-full max-w-md relative z-10 border border-white/50 animate-in zoom-in-95 duration-500">
               
+              {isSupabaseMissing && (
+                  <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded text-left">
+                      <div className="flex">
+                          <div className="flex-shrink-0">
+                              <AlertTriangle className="h-5 w-5 text-red-500" />
+                          </div>
+                          <div className="ml-3">
+                              <h3 className="text-sm font-medium text-red-800">Database Belum Terhubung</h3>
+                              <div className="mt-2 text-xs text-red-700">
+                                  <p>Harap tambahkan environment variables di hosting (contoh: Netlify):</p>
+                                  <ul className="list-disc pl-5 mt-1 font-mono">
+                                      <li>VITE_SUPABASE_URL</li>
+                                      <li>VITE_SUPABASE_ANON_KEY</li>
+                                  </ul>
+                              </div>
+                          </div>
+                      </div>
+                  </div>
+              )}
+
               {settings.schoolLogoUrl && (
                   <div className="flex justify-center mb-6">
                       <img 

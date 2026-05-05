@@ -4,11 +4,14 @@ import { User, UserRole, Exam, Question, ExamResult, AppSettings } from '../type
 // Supabase wrapper
 export const db = {
   getSettings: async (): Promise<AppSettings> => {
-    const { data } = await supabase.from('settings').select('data').eq('id', 1).single();
+    const { data, error } = await supabase.from('settings').select('data').eq('id', 1).single();
+    if (error && error.code !== 'PGRST116') {
+        throw error;
+    }
     if (data && data.data) {
         return data.data as AppSettings;
     }
-    // Fallback if not found yet
+    // Fallback if not found yet (only if no rows found or just initialized)
     return {
       appName: 'UJI TKA MANDIRI',
       appSubtitle: 'Computer Based Test',
@@ -29,7 +32,10 @@ export const db = {
     // Try staff first
     // Use ilike with % to catch cases where DB has trailing \r from CSV imports
     let { data: staffData, error: staffError } = await supabase.from('staff').select('*').ilike('username', `%${cleanInput}%`);
-    if (staffError) console.error("Supabase Staff Error:", staffError);
+    if (staffError) {
+        console.error("Supabase Staff Error:", staffError);
+        throw new Error("Koneksi ke database gagal saat mengecek staff. Harap periksa koneksi internet Anda.");
+    }
     
     let staff = staffData?.find(s => 
         (s.username || '').toString().trim().toLowerCase() === cleanInputLower && 
@@ -40,7 +46,10 @@ export const db = {
     
     // Try student
     let { data: studentData, error: studentError } = await supabase.from('students').select('*').ilike('nomor_peserta', `%${cleanInput}%`);
-    if (studentError) console.error("Supabase Student Error:", studentError);
+    if (studentError) {
+        console.error("Supabase Student Error:", studentError);
+        throw new Error("Koneksi ke database gagal saat mengecek peserta. Harap periksa koneksi internet Anda.");
+    }
     
     let currStudent = studentData?.find(s => 
         (s.nomor_peserta || '').toString().trim().toLowerCase() === cleanInputLower && 
