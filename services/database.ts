@@ -1,23 +1,45 @@
-import { supabase } from './supabase';
+import { supabase, isSupabaseConfigured } from './supabase';
 import { User, UserRole, Exam, Question, ExamResult, AppSettings } from '../types';
 
 // Supabase wrapper
 export const db = {
   getSettings: async (): Promise<AppSettings> => {
-    const { data, error } = await supabase.from('settings').select('data').eq('id', 1).single();
-    if (error && error.code !== 'PGRST116') {
-        throw error;
-    }
-    if (data && data.data) {
-        return data.data as AppSettings;
-    }
-    // Fallback if not found yet (only if no rows found or just initialized)
-    return {
-      appName: 'UJI TKA MANDIRI',
+    const defaultSettings: AppSettings = {
+      appName: 'PINTAR CBT',
       appSubtitle: 'Computer Based Test',
       logoStyle: 'circle',
-      antiCheat: { isActive: true, freezeDurationSeconds: 15, alertText: 'Pelanggaran!', enableSound: true }
-    } as AppSettings;
+      themeColor: '#2563eb',
+      gradientEndColor: '#60a5fa',
+      schoolLogoUrl: 'https://lh3.googleusercontent.com/d/1n5CE1ey6jzlmYWZ1KLQOIjs7bBnxw3u8',
+      ministryLogoUrl: '',
+      footerText: 'Powered by PINTAR',
+      showTokenToStudents: false,
+      antiCheat: { isActive: true, freezeDurationSeconds: 15, alertText: 'Pelanggaran!', enableSound: true, antiSubmitEnabled: false, antiSubmitTime: 10 }
+    };
+
+    if (!isSupabaseConfigured) return defaultSettings;
+
+    try {
+        const { data, error } = await supabase.from('settings').select('data').eq('id', 1).single();
+        if (error && error.code !== 'PGRST116') {
+            console.warn("Supabase settings error:", error);
+            // Don't throw, just fallback so app doesn't crash
+            return defaultSettings;
+        }
+        if (data && data.data) {
+            return {
+                ...defaultSettings,
+                ...data.data,
+                antiCheat: {
+                    ...defaultSettings.antiCheat,
+                    ...(data.data.antiCheat || {})
+                }
+            } as AppSettings;
+        }
+    } catch (e) {
+        console.error("Failed to fetch settings from DB", e);
+    }
+    return defaultSettings;
   },
   updateSettings: async (newSettings: Partial<AppSettings>): Promise<void> => {
     let current = await db.getSettings();
@@ -29,51 +51,59 @@ export const db = {
     const cleanInputLower = cleanInput.toLowerCase();
     const cleanPassword = (password || '').trim();
     
-    // Try staff first
-    // Use ilike with % to catch cases where DB has trailing \r from CSV imports
-    let { data: staffData, error: staffError } = await supabase.from('staff').select('*').ilike('username', `%${cleanInput}%`);
-    if (staffError) {
-        console.error("Supabase Staff Error:", staffError);
-        throw new Error("Koneksi ke database gagal saat mengecek staff. Harap periksa koneksi internet Anda.");
+    // Check if Supabase is properly configured first
+    if (!isSupabaseConfigured) {
+        throw new Error("Koneksi Error: VITE_SUPABASE_URL atau VITE_SUPABASE_ANON_KEY belum diatur. Silakan atur Environment Variables.");
     }
-    
-    let staff = staffData?.find(s => 
-        (s.username || '').toString().trim().toLowerCase() === cleanInputLower && 
-        (s.password || '').toString().trim() === cleanPassword
-    );
-    
-    if (staff) return { id: staff.id, name: staff.name, username: staff.username, role: staff.role as UserRole, school: staff.school, room: staff.room, npsn: staff.npsn, password: staff.password };
-    
-    // Try student
-    let { data: studentData, error: studentError } = await supabase.from('students').select('*').ilike('nomor_peserta', `%${cleanInput}%`);
-    if (studentError) {
-        console.error("Supabase Student Error:", studentError);
-        throw new Error("Koneksi ke database gagal saat mengecek peserta. Harap periksa koneksi internet Anda.");
-    }
-    
-    let currStudent = studentData?.find(s => 
-        (s.nomor_peserta || '').toString().trim().toLowerCase() === cleanInputLower && 
-        (s.password || '').toString().trim() === cleanPassword
-    );
 
-    if (currStudent) {
-        await supabase.from('students').update({ is_login: true }).eq('id', currStudent.id);
-        const { data: mappings } = await supabase.from('student_exam_mapping').select('*').eq('student_id', currStudent.id);
-        return { 
-           id: currStudent.id, name: currStudent.name, username: currStudent.username || currStudent.nomor_peserta, role: UserRole.STUDENT, 
-           school: currStudent.school, nomorPeserta: currStudent.nomor_peserta, gender: currStudent.gender, 
-           birthDate: currStudent.birth_date, class: currStudent.class, isLogin: true, 
-           mappings: mappings?.map(m => ({ id: m.id, studentId: m.student_id, examId: m.subject_id, examDate: m.exam_date, session: m.session, room: m.room })) || []
-        };
+    try {
+        // Try staff first
+        let { data: staffData, error: staffError } = await supabase.from('staff').select('*').ilike('username', `%${cleanInput}%`);
+        if (staffError) {
+            console.error("Supabase Staff Error:", staffError);
+        }
+        
+        let staff = staffData?.find(s => 
+            (s.username || '').toString().trim().toLowerCase() === cleanInputLower && 
+            (s.password || '').toString().trim() === cleanPassword
+        );
+        
+        if (staff) return { id: staff.id, name: staff.name, username: staff.username, role: staff.role as UserRole, school: staff.school, room: staff.room, npsn: staff.npsn, password: staff.password };
+        
+        // Try student
+        let { data: studentData, error: studentError } = await supabase.from('students').select('*').ilike('nomor_peserta', `%${cleanInput}%`);
+        if (studentError) {
+            console.error("Supabase Student Error:", studentError);
+        }
+        
+        let currStudent = studentData?.find(s => 
+            (s.nomor_peserta || '').toString().trim().toLowerCase() === cleanInputLower && 
+            (s.password || '').toString().trim() === cleanPassword
+        );
+
+        if (currStudent) {
+            await supabase.from('students').update({ is_login: true }).eq('id', currStudent.id);
+            const { data: mappings } = await supabase.from('student_exam_mapping').select('*').eq('student_id', currStudent.id);
+            return { 
+               id: currStudent.id, name: currStudent.name, username: currStudent.username || currStudent.nomor_peserta, role: UserRole.STUDENT, 
+               school: currStudent.school, nomorPeserta: currStudent.nomor_peserta, gender: currStudent.gender, 
+               birthDate: currStudent.birth_date, class: currStudent.class, isLogin: true, 
+               mappings: mappings?.map(m => ({ id: m.id, studentId: m.student_id, examId: m.subject_id, examDate: m.exam_date, session: m.session, room: m.room })) || []
+            };
+        }
+        return undefined;
+    } catch (err: any) {
+        console.error("Fetch DB error:", err);
+        throw new Error("Gagal mengambil data dari database, pastikan koneksi internet stabil dan tabel sudah dibuat.");
     }
-    return undefined;
   },
   getExams: async (level?: 'SD'): Promise<Exam[]> => {
     // Optimization: Select only required columns and sum up real question lengths
-    const { data } = await supabase.from('subjects').select('id, name, duration, question_count, token, is_active, education_level, shuffle_questions, shuffle_options, school_access, form_url, questions(id, points)');
+    const { data, error } = await supabase.from('subjects').select('id, name, duration, question_count, token, is_active, education_level, shuffle_questions, shuffle_options, school_access, form_url, questions(id, points)');
+    if (error) console.error("Error fetching exams:", error);
     if(!data) return [];
     return data.map(d => ({
-        id: d.id, title: d.name, subject: d.name, durationMinutes: d.duration || 90, 
+        id: d.id, title: d.name, subject: d.name, durationMinutes: d.duration, 
         questionCount: d.questions?.length || 0,
         token: d.token || '', isActive: d.is_active, 
         questions: d.questions as unknown as Question[] || [], // Partial array of Questions for points counting
@@ -118,7 +148,8 @@ export const db = {
     }, { onConflict: 'exam_id,peserta_id' });
   },
   getAllResults: async (): Promise<ExamResult[]> => {
-    const { data } = await supabase.from('results').select('*, students(name), subjects(name)');
+    const { data, error } = await supabase.from('results').select('*, students(name), subjects(name)');
+    if (error) console.error("Error fetching results:", error);
     if(!data) return [];
     return data.map(d => ({
         id: d.id, studentId: d.peserta_id, examId: d.exam_id, score: d.score, submittedAt: d.finish_time,
@@ -127,9 +158,12 @@ export const db = {
     }));
   },
   getUsers: async (): Promise<User[]> => {
-    const { data: students } = await supabase.from('students').select('*, student_exam_mapping(id, subject_id, exam_date, session, room)');
-    const { data: staff } = await supabase.from('staff').select('*');
+    const { data: students, error: studentError } = await supabase.from('students').select('*, student_exam_mapping(id, subject_id, exam_date, session, room)');
+    const { data: staff, error: staffError } = await supabase.from('staff').select('*');
     
+    if (studentError) console.error("Error fetching students:", studentError);
+    if (staffError) console.error("Error fetching staff:", staffError);
+
     let allUsers: User[] = [];
     if(students) {
         allUsers = allUsers.concat(students.map(d => ({
@@ -344,7 +378,7 @@ export const db = {
       const { data: qData } = await supabase.from('questions').select('content').eq('subject_id', id);
       const questions = qData ? qData.map(q => q.content) : [];
       return {
-          id: data.id, title: data.name, subject: data.name, durationMinutes: data.duration || 90,
+          id: data.id, title: data.name, subject: data.name, durationMinutes: data.duration,
           questionCount: data.question_count, token: data.token, isActive: data.is_active,
           educationLevel: data.education_level || 'SD', questions, shuffleOptions: data.shuffle_options,
           shuffleQuestions: data.shuffle_questions, formUrl: data.form_url || ''
@@ -355,7 +389,7 @@ export const db = {
       if(!data) return { data: [] };
       return { data: data.map(d => ({
           examId: d.subject_id, examDate: d.exam_date, session: d.session, room: d.room,
-          exam: { id: d.subjects.id, title: d.subjects.name, durationMinutes: d.subjects.duration || 90, token: d.subjects.token }
+          exam: { id: d.subjects.id, title: d.subjects.name, durationMinutes: d.subjects.duration, token: d.subjects.token }
       })) };
   },
   getExamSessions: async (): Promise<any[]> => [],
