@@ -14,7 +14,7 @@ DROP TABLE IF EXISTS "settings" CASCADE;
 CREATE TABLE IF NOT EXISTS subjects (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name TEXT NOT NULL,
-  duration INTEGER DEFAULT 60,
+  duration INTEGER DEFAULT 90,
   question_count INTEGER DEFAULT 0,
   token TEXT,
   form_url TEXT,
