@@ -1,15 +1,28 @@
+"use client"; // Wajib ditambahkan jika menggunakan Next.js (Hapus jika Anda menggunakan Vite/CRA biasa)
+
 import React, { useState, useEffect } from 'react';
 import { Download, X } from 'lucide-react';
 
+// 1. Definisikan interface khusus agar TypeScript tidak error saat build
+interface BeforeInstallPromptEvent extends Event {
+    readonly platforms: Array<string>;
+    readonly userChoice: Promise<{
+        outcome: 'accepted' | 'dismissed',
+        platform: string
+    }>;
+    prompt(): Promise<void>;
+}
+
 export const PWAInstallPrompt: React.FC = () => {
-    const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+    // 2. Gunakan interface yang sudah dibuat sebagai tipe data state
+    const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
     const [isVisible, setIsVisible] = useState(false);
 
     useEffect(() => {
-        // Tampilkan prompt selalu saat available tanpa cache/localStorage (Sesuai request)
         const handler = (e: Event) => {
             e.preventDefault();
-            setDeferredPrompt(e);
+            // Cast event standard ke BeforeInstallPromptEvent
+            setDeferredPrompt(e as BeforeInstallPromptEvent);
             setIsVisible(true);
         };
 
@@ -22,12 +35,22 @@ export const PWAInstallPrompt: React.FC = () => {
 
     const handleInstallClick = async () => {
         if (!deferredPrompt) return;
-        deferredPrompt.prompt();
-        const { outcome } = await deferredPrompt.userChoice;
-        if (outcome === 'accepted') {
-            setIsVisible(false);
+        
+        try {
+            // 3. Tambahkan try-catch untuk mencegah runtime crash jika prompt gagal
+            await deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            
+            if (outcome === 'accepted') {
+                setIsVisible(false);
+            }
+        } catch (error) {
+            console.error("Gagal menampilkan prompt instalasi:", error);
+        } finally {
+            // 4. Selalu reset prompt. deferredPrompt HANYA BISA dipanggil satu kali.
+            // Jika tidak di-reset dan user klik lagi, aplikasi akan crash.
+            setDeferredPrompt(null);
         }
-        setDeferredPrompt(null);
     };
 
     const handleDismiss = () => {
