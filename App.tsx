@@ -26,19 +26,8 @@ const App: React.FC = () => {
   const [passwordInput, setPasswordInput] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [toast, setToast] = useState<{message: string, type: 'success' | 'error'} | null>(null);
-
-    
-  // PWA Install State
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
-  const [isInstallable, setIsInstallable] = useState(false);
-  const [showPwaPrompt, setShowPwaPrompt] = useState(false);
-
-  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
-      setToast({ message, type });
-      setTimeout(() => setToast(null), 3000);
-  };
-    
+  const [toast, setToast] = useState<{message: string, type: 'success' | 'error'} | null>(null);   
+      
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
       setToast({ message, type });
       setTimeout(() => setToast(null), 3000);
