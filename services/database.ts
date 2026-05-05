@@ -73,7 +73,7 @@ export const db = {
     const { data } = await supabase.from('subjects').select('id, name, duration, question_count, token, is_active, education_level, shuffle_questions, shuffle_options, school_access, form_url, questions(id, points)');
     if(!data) return [];
     return data.map(d => ({
-        id: d.id, title: d.name, subject: d.name, durationMinutes: d.duration, 
+        id: d.id, title: d.name, subject: d.name, durationMinutes: d.duration || 90, 
         questionCount: d.questions?.length || 0,
         token: d.token || '', isActive: d.is_active, 
         questions: d.questions as unknown as Question[] || [], // Partial array of Questions for points counting
@@ -344,7 +344,7 @@ export const db = {
       const { data: qData } = await supabase.from('questions').select('content').eq('subject_id', id);
       const questions = qData ? qData.map(q => q.content) : [];
       return {
-          id: data.id, title: data.name, subject: data.name, durationMinutes: data.duration,
+          id: data.id, title: data.name, subject: data.name, durationMinutes: data.duration || 90,
           questionCount: data.question_count, token: data.token, isActive: data.is_active,
           educationLevel: data.education_level || 'SD', questions, shuffleOptions: data.shuffle_options,
           shuffleQuestions: data.shuffle_questions, formUrl: data.form_url || ''
@@ -355,7 +355,7 @@ export const db = {
       if(!data) return { data: [] };
       return { data: data.map(d => ({
           examId: d.subject_id, examDate: d.exam_date, session: d.session, room: d.room,
-          exam: { id: d.subjects.id, title: d.subjects.name, durationMinutes: d.subjects.duration, token: d.subjects.token }
+          exam: { id: d.subjects.id, title: d.subjects.name, durationMinutes: d.subjects.duration || 90, token: d.subjects.token }
       })) };
   },
   getExamSessions: async (): Promise<any[]> => [],
