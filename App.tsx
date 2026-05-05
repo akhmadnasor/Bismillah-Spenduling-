@@ -87,8 +87,8 @@ const App: React.FC = () => {
   // PERSISTENCE LOGIC: Restore state from storage on reload
   const restoreSession = () => {
       try {
-          const savedUser = sessionStorage.getItem('das_user');
-          const savedExam = sessionStorage.getItem('das_exam');
+          const savedUser = localStorage.getItem('das_user');
+          const savedExam = localStorage.getItem('das_exam');
           
           if (savedUser) {
               const parsedUser = JSON.parse(savedUser);
@@ -192,7 +192,7 @@ const App: React.FC = () => {
         }
 
         // 1. Save Session immediately
-        sessionStorage.setItem('das_user', JSON.stringify(user));
+        localStorage.setItem('das_user', JSON.stringify(user));
         setCurrentUser(user);
       } else {
         showToast('Data tidak ditemukan atau Password salah. \nPastikan Username dan Password benar.', 'error');
@@ -219,10 +219,10 @@ const App: React.FC = () => {
 
   const handleLogout = () => {
     // Clear Session Storage
-    sessionStorage.removeItem('das_user');
-    sessionStorage.removeItem('das_exam');
-    sessionStorage.removeItem('das_student_flow_step'); // Clear flow state too
-    sessionStorage.removeItem('das_student_flow_exam');
+    localStorage.removeItem('das_user');
+    localStorage.removeItem('das_exam');
+    localStorage.removeItem('das_student_flow_step'); // Clear flow state too
+    localStorage.removeItem('das_student_flow_exam');
 
     cacheManager.clearSession();
     setCurrentUser(null);
@@ -244,7 +244,7 @@ const App: React.FC = () => {
           const fullExamData = await db.getExamById(exam.id);
           if (fullExamData) {
               // Save Active Exam state including full questions
-              sessionStorage.setItem('das_exam', JSON.stringify(fullExamData));
+              localStorage.setItem('das_exam', JSON.stringify(fullExamData));
               setActiveExam(fullExamData);
           } else {
               showToast("Gagal mengambil data soal ujian.", "error");
@@ -259,7 +259,7 @@ const App: React.FC = () => {
 
   const handleExamComplete = () => {
       // Clear Active Exam state but keep User logged in
-      sessionStorage.removeItem('das_exam');
+      localStorage.removeItem('das_exam');
       setActiveExam(null);
   };
 

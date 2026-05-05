@@ -17,10 +17,10 @@ type Step = 'DASHBOARD' | 'DATA_CONFIRM' | 'TEST_CONFIRM';
 export const StudentFlow: React.FC<StudentFlowProps> = ({ user, onStartExam, onLogout, settings, onRefreshSettings }) => {
   // Initialize state from sessionStorage if available
   const [step, setStep] = useState<Step>(() => {
-      return (sessionStorage.getItem('das_student_flow_step') as Step) || 'DASHBOARD';
+      return (localStorage.getItem('das_student_flow_step') as Step) || 'DASHBOARD';
   });
   const [selectedExam, setSelectedExam] = useState<Exam | null>(() => {
-      const saved = sessionStorage.getItem('das_student_flow_exam');
+      const saved = localStorage.getItem('das_student_flow_exam');
       return saved ? JSON.parse(saved) : null;
   });
 
@@ -44,14 +44,14 @@ export const StudentFlow: React.FC<StudentFlowProps> = ({ user, onStartExam, onL
 
   // Persist state changes
   useEffect(() => {
-      sessionStorage.setItem('das_student_flow_step', step);
+      localStorage.setItem('das_student_flow_step', step);
   }, [step]);
 
   useEffect(() => {
       if (selectedExam) {
-          sessionStorage.setItem('das_student_flow_exam', JSON.stringify(selectedExam));
+          localStorage.setItem('das_student_flow_exam', JSON.stringify(selectedExam));
       } else {
-          sessionStorage.removeItem('das_student_flow_exam');
+          localStorage.removeItem('das_student_flow_exam');
       }
   }, [selectedExam]);
 
@@ -212,8 +212,8 @@ export const StudentFlow: React.FC<StudentFlowProps> = ({ user, onStartExam, onL
       }
 
       // Clear local flow persistence as we move to actual exam
-      sessionStorage.removeItem('das_student_flow_step');
-      sessionStorage.removeItem('das_student_flow_exam');
+      localStorage.removeItem('das_student_flow_step');
+      localStorage.removeItem('das_student_flow_exam');
       onStartExam(selectedExam);
     }
   };
