@@ -6,31 +6,17 @@ export const PWAInstallPrompt: React.FC = () => {
     const [isVisible, setIsVisible] = useState(false);
 
     useEffect(() => {
-        // Only show on mobile devices
-        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
-        if (!isMobile) return;
-
-        let timer: any;
+        // Tampilkan prompt selalu saat available tanpa cache/localStorage (Sesuai request)
         const handler = (e: Event) => {
             e.preventDefault();
             setDeferredPrompt(e);
-            
-            const isDismissed = localStorage.getItem('das_pwa_dismissed') === 'true';
-            if (!isDismissed) {
-                setIsVisible(true);
-                // Sembunyikan otomatis setelah 15 detik
-                if (timer) clearTimeout(timer);
-                timer = setTimeout(() => {
-                    setIsVisible(false);
-                }, 15000);
-            }
+            setIsVisible(true);
         };
 
         window.addEventListener('beforeinstallprompt', handler);
 
         return () => {
             window.removeEventListener('beforeinstallprompt', handler);
-            if (timer) clearTimeout(timer);
         };
     }, []);
 
@@ -40,44 +26,60 @@ export const PWAInstallPrompt: React.FC = () => {
         const { outcome } = await deferredPrompt.userChoice;
         if (outcome === 'accepted') {
             setIsVisible(false);
-            localStorage.setItem('das_pwa_dismissed', 'true');
         }
         setDeferredPrompt(null);
     };
 
     const handleDismiss = () => {
         setIsVisible(false);
-        localStorage.setItem('das_pwa_dismissed', 'true');
     };
 
     if (!isVisible) return null;
 
     return (
-        <div className="fixed bottom-6 right-6 z-[999] animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="relative group">
+        <div className="fixed inset-0 z-[9999] bg-white/80 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in duration-300">
+            <div className="bg-white rounded-3xl shadow-2xl overflow-hidden max-w-sm w-full relative">
+                {/* Header pattern/color */}
+                <div className="bg-gradient-to-br from-blue-500 to-indigo-600 h-32 w-full absolute top-0 left-0" />
+                
                 <button 
                     onClick={handleDismiss}
-                    className="absolute -top-2 -right-2 bg-gray-800 text-white rounded-full p-1 shadow-lg hover:bg-gray-700 transition z-10"
+                    className="absolute top-4 right-4 text-white/80 hover:text-white bg-black/20 hover:bg-black/30 p-2 rounded-full transition-colors z-10"
                 >
-                    <X size={12} />
+                    <X size={20} />
                 </button>
-                <button 
-                    onClick={handleInstallClick}
-                    className="bg-blue-600 text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center space-x-3 hover:bg-blue-700 transition transform hover:scale-105 border-2 border-white/20 backdrop-blur-sm"
-                >
-                    <div className="bg-white p-1 rounded-xl w-10 h-10 flex items-center justify-center">
+
+                <div className="relative pt-20 px-8 pb-8 flex flex-col items-center text-center">
+                    {/* Logo Box */}
+                    <div className="bg-white p-4 rounded-2xl shadow-xl w-24 h-24 flex items-center justify-center mb-6">
                         <img 
                             src="https://lh3.googleusercontent.com/d/1n5CE1ey6jzlmYWZ1KLQOIjs7bBnxw3u8" 
-                            alt="CBT Logo" 
-                            className="w-8 h-8 object-contain"
+                            alt="PINTAR Logo" 
+                            className="w-full h-full object-contain"
                             referrerPolicy="no-referrer"
                         />
                     </div>
-                    <div className="text-left pr-2">
-                        <p className="text-[10px] font-bold uppercase tracking-wider opacity-70">Install Aplikasi</p>
-                        <p className="text-sm font-bold leading-tight">PINTAR</p>
-                    </div>
-                </button>
+                    
+                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Pasang PINTAR</h2>
+                    <p className="text-gray-600 mb-8 leading-relaxed">
+                        Nikmati pengalaman ujian yang lebih cepat, mulus, dan layar penuh (Fullscreen) langsung dari perangkatmu!
+                    </p>
+
+                    <button 
+                        onClick={handleInstallClick}
+                        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-4 px-6 rounded-xl shadow-lg shadow-blue-200 transition-all flex items-center justify-center space-x-2 animate-bounce hover:animate-none"
+                    >
+                        <Download size={20} />
+                        <span>Install Sekarang</span>
+                    </button>
+                    
+                    <button
+                        onClick={handleDismiss}
+                        className="mt-4 text-gray-400 hover:text-gray-600 text-sm font-medium transition-colors"
+                    >
+                        Nanti Saja
+                    </button>
+                </div>
             </div>
         </div>
     );
