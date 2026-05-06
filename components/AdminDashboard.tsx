@@ -196,7 +196,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
   ]);
 
   // TABS
-  const [activeTab, setActiveTab] = useState<'DASHBOARD' | 'MONITORING' | 'HASIL_UJIAN' | 'BANK_SOAL' | 'MAPPING' | 'PESERTA' | 'CETAK_KARTU' | 'DAFTAR_HADIR' | 'ANTI_CHEAT' | 'THEME' | 'STAFF' | 'TROUBLESHOOTING' | 'PENGAWAS'>('DASHBOARD');
+  const [activeTab, setActiveTab] = useState<'DASHBOARD' | 'MONITORING' | 'PELANGGARAN' | 'HASIL_UJIAN' | 'BANK_SOAL' | 'MAPPING' | 'PESERTA' | 'CETAK_KARTU' | 'DAFTAR_HADIR' | 'ANTI_CHEAT' | 'THEME' | 'STAFF' | 'TROUBLESHOOTING' | 'PENGAWAS'>('DASHBOARD');
   
   // STAFF STATE
   const [staffList, setStaffList] = useState<User[]>([]);
@@ -3416,6 +3416,7 @@ ANS: B`;
           <nav className="flex-1 p-2 md:p-4 overflow-y-auto custom-scrollbar">
               <NavItem id="DASHBOARD" label="Dashboard" icon={LayoutDashboard} />
               <NavItem id="MONITORING" label="Monitoring Ujian" icon={Activity} />
+              <NavItem id="PELANGGARAN" label="Data Pelanggaran" icon={AlertTriangle} />
               <NavItem id="HASIL_UJIAN" label="Hasil Ujian" icon={ClipboardList} />
               
               {(user.role === UserRole.ADMIN || user.role === UserRole.SUPER_ADMIN || user.role === UserRole.GURU) && (
@@ -3668,6 +3669,76 @@ ANS: B`;
                                })}
                                {finalMonitoringUsers.length === 0 && (
                                    <tr><td colSpan={9} className="p-4 text-center text-gray-500">Tidak ada peserta yang sedang online.</td></tr>
+                               )}
+                           </tbody>
+                       </table>
+                   </div>
+               </div>
+          )}
+          
+          {/* PELANGGARAN UJIAN */}
+          {activeTab === 'PELANGGARAN' && (
+               <div className="bg-white rounded-xl shadow-sm border p-6 animate-in fade-in print:hidden">
+                   <div className="flex justify-between items-center mb-6">
+                       <h3 className="font-bold text-lg flex items-center">
+                           <AlertTriangle size={20} className="mr-2 text-red-600"/> Data Pelanggaran Hari Ini
+                       </h3>
+                   </div>
+                   
+                   <div className="overflow-x-auto rounded-xl border border-gray-100">
+                       <table className="w-full text-left border-collapse whitespace-nowrap">
+                           <thead>
+                               <tr className="bg-red-50 text-red-800 text-sm border-b border-red-100">
+                                   <th className="p-3">Siswa</th>
+                                   <th className="p-3">Mata Ujian</th>
+                                   <th className="p-3 text-center">Jumlah Pelanggaran</th>
+                                   <th className="p-3">Status</th>
+                                   <th className="p-3">Waktu Selesai</th>
+                               </tr>
+                           </thead>
+                           <tbody className="text-sm">
+                               {results.length > 0 ? (
+                                   results
+                                     .filter(r => r.cheatingAttempts > 0)
+                                     .filter(r => {
+                                        const stu = users.find(u => u.id === r.studentId);
+                                        const map = stu?.mappings?.find(m => m.examId === r.examId);
+                                        return map?.examDate === localTodayStr || (r.submittedAt && r.submittedAt.startsWith(localTodayStr));
+                                     })
+                                     .sort((a,b) => b.cheatingAttempts - a.cheatingAttempts)
+                                     .map((r, i) => (
+                                       <tr key={i} className="border-b border-gray-50 hover:bg-red-50/50 transition">
+                                           <td className="p-3 font-medium text-gray-800">{r.studentName}</td>
+                                           <td className="p-3 text-gray-600">{r.examTitle}</td>
+                                           <td className="p-3 text-center font-bold text-red-600">
+                                                {r.cheatingAttempts} Kali
+                                           </td>
+                                           <td className="p-3">
+                                               {r.status === 'working' ? (
+                                                   <span className="text-xs px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full font-bold">Sedang Ujian</span>
+                                               ) : r.status === 'finished' ? (
+                                                   <span className="text-xs px-2 py-1 bg-green-100 text-green-800 rounded-full font-bold">Selesai</span>
+                                               ) : r.status === 'locked' ? (
+                                                   <span className="text-xs px-2 py-1 bg-red-100 text-red-800 rounded-full font-bold">Diblokir</span>
+                                               ) : '-'}
+                                           </td>
+                                           <td className="p-3 text-gray-500">
+                                               {r.submittedAt ? new Date(r.submittedAt).toLocaleTimeString('id-ID') : '-'}
+                                           </td>
+                                       </tr>
+                                   ))
+                               ) : null}
+                               {results.filter(r => r.cheatingAttempts > 0).filter(r => {
+                                  const stu = users.find(u => u.id === r.studentId);
+                                  const map = stu?.mappings?.find(m => m.examId === r.examId);
+                                  return map?.examDate === localTodayStr || (r.submittedAt && r.submittedAt.startsWith(localTodayStr));
+                               }).length === 0 && (
+                                   <tr>
+                                       <td colSpan={5} className="p-8 text-center text-gray-500">
+                                           <ShieldCheck className="mx-auto h-12 w-12 text-gray-300 mb-2" />
+                                           <p className="font-medium">Tidak ada data pelanggaran hari ini</p>
+                                       </td>
+                                   </tr>
                                )}
                            </tbody>
                        </table>
