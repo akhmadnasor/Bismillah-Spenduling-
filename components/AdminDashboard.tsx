@@ -377,6 +377,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
   // MONITORING BULK ACTIONS
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
   const [monitoringExamId, setMonitoringExamId] = useState<string>('');
+  const [violationExamFilter, setViolationExamFilter] = useState<string>('ALL');
 
   // MOBILE SIDEBAR STATE
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -2562,7 +2563,7 @@ ANS: B`;
   // Responsive Nav Item
   const NavItem = ({ id, label, icon: Icon }: { id: typeof activeTab, label: string, icon: any }) => (
       <button 
-        onClick={() => { setActiveTab(id); setDashboardView('MAIN'); }} 
+        onClick={() => { setActiveTab(id); setDashboardView('MAIN'); loadData(true); }} 
         className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center' : 'justify-start space-x-3'} p-3 md:px-4 md:py-3 rounded-lg transition mb-1 text-sm font-medium ${activeTab === id ? 'bg-white/10 text-white shadow-inner ring-1 ring-white/20' : 'text-blue-100 hover:bg-white/5'}`}
         title={label}
       >
@@ -3679,10 +3680,20 @@ ANS: B`;
           {/* PELANGGARAN UJIAN */}
           {activeTab === 'PELANGGARAN' && (
                <div className="bg-white rounded-xl shadow-sm border p-6 animate-in fade-in print:hidden">
-                   <div className="flex justify-between items-center mb-6">
+                   <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                        <h3 className="font-bold text-lg flex items-center">
                            <AlertTriangle size={20} className="mr-2 text-red-600"/> Data Pelanggaran Hari Ini
                        </h3>
+                       <select
+                           className="border rounded-lg p-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none w-full md:w-auto"
+                           value={violationExamFilter}
+                           onChange={(e) => setViolationExamFilter(e.target.value)}
+                       >
+                           <option value="ALL">Semua Mata Ujian</option>
+                           {exams.map(ex => (
+                               <option key={ex.id} value={ex.id}>{ex.title}</option>
+                           ))}
+                       </select>
                    </div>
                    
                    <div className="overflow-x-auto rounded-xl border border-gray-100">
@@ -3700,10 +3711,13 @@ ANS: B`;
                                {results.length > 0 ? (
                                    results
                                      .filter(r => r.cheatingAttempts > 0)
+                                     .filter(r => violationExamFilter === 'ALL' || r.examId === violationExamFilter)
                                      .filter(r => {
                                         const stu = users.find(u => u.id === r.studentId);
                                         const map = stu?.mappings?.find(m => m.examId === r.examId);
-                                        return map?.examDate === localTodayStr || (r.submittedAt && r.submittedAt.startsWith(localTodayStr));
+                                        const isToday = map?.examDate === localTodayStr || (r.submittedAt && r.submittedAt.startsWith(localTodayStr));
+                                        const isOngoing = r.status === 'working' || r.status === 'locked';
+                                        return isToday || isOngoing;
                                      })
                                      .sort((a,b) => b.cheatingAttempts - a.cheatingAttempts)
                                      .map((r, i) => (
@@ -3728,10 +3742,12 @@ ANS: B`;
                                        </tr>
                                    ))
                                ) : null}
-                               {results.filter(r => r.cheatingAttempts > 0).filter(r => {
+                               {results.filter(r => r.cheatingAttempts > 0).filter(r => violationExamFilter === 'ALL' || r.examId === violationExamFilter).filter(r => {
                                   const stu = users.find(u => u.id === r.studentId);
                                   const map = stu?.mappings?.find(m => m.examId === r.examId);
-                                  return map?.examDate === localTodayStr || (r.submittedAt && r.submittedAt.startsWith(localTodayStr));
+                                  const isToday = map?.examDate === localTodayStr || (r.submittedAt && r.submittedAt.startsWith(localTodayStr));
+                                  const isOngoing = r.status === 'working' || r.status === 'locked';
+                                  return isToday || isOngoing;
                                }).length === 0 && (
                                    <tr>
                                        <td colSpan={5} className="p-8 text-center text-gray-500">

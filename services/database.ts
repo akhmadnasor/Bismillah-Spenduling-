@@ -148,12 +148,32 @@ export const db = {
     }, { onConflict: 'exam_id,peserta_id' });
   },
   getAllResults: async (): Promise<ExamResult[]> => {
-    const { data, error } = await supabase.from('results').select('*, students(name), subjects(name)');
+    const { data: relData, error: relError } = await supabase.from('results').select('*, students(name), subjects(name)');
+    
+    if (!relError && relData) {
+        return relData.map(d => ({
+            id: d.id, studentId: d.peserta_id, examId: d.exam_id, score: d.score, submittedAt: d.finish_time,
+            studentName: d.students?.name, examTitle: d.subjects?.name,
+            totalQuestions: 0, cheatingAttempts: d.violation_count || 0, answers: d.answers, status: d.status
+        }));
+    }
+
+    console.warn("Relational query failed, falling back to manual join.", relError);
+
+    // Manual join Fallback
+    const { data, error } = await supabase.from('results').select('*');
     if (error) console.error("Error fetching results:", error);
-    if(!data) return [];
+    if (!data) return [];
+
+    const [{ data: students }, { data: subjects }] = await Promise.all([
+        supabase.from('students').select('id, name'),
+        supabase.from('subjects').select('id, name')
+    ]);
+
     return data.map(d => ({
         id: d.id, studentId: d.peserta_id, examId: d.exam_id, score: d.score, submittedAt: d.finish_time,
-        studentName: d.students?.name, examTitle: d.subjects?.name,
+        studentName: students?.find(s => s.id === d.peserta_id)?.name || 'Unknown',
+        examTitle: subjects?.find(s => s.id === d.exam_id)?.name || 'Unknown',
         totalQuestions: 0, cheatingAttempts: d.violation_count || 0, answers: d.answers, status: d.status
     }));
   },
