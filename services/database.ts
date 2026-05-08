@@ -1,6 +1,27 @@
 import { supabase, isSupabaseConfigured } from './supabase';
 import { User, UserRole, Exam, Question, ExamResult, AppSettings } from '../types';
 
+async function fetchAll(table: string, selectQuery: string = '*') {
+    if (!isSupabaseConfigured) return [];
+    let allData: any[] = [];
+    let from = 0;
+    const step = 999;
+    
+    while (true) {
+        const { data, error } = await supabase.from(table).select(selectQuery).range(from, from + step);
+        if (error) {
+            console.error(`Error fetchAll on table ${table}:`, error);
+            throw error;
+        }
+        if (!data || data.length === 0) break;
+        
+        allData = allData.concat(data);
+        if (data.length <= step) break;
+        from += step + 1;
+    }
+    return allData;
+}
+
 // Supabase wrapper
 export const db = {
   getSettings: async (): Promise<AppSettings> => {
@@ -99,9 +120,8 @@ export const db = {
   },
   getExams: async (level?: 'SD'): Promise<Exam[]> => {
     // Optimization: Select only required columns and sum up real question lengths
-    const { data, error } = await supabase.from('subjects').select('id, name, duration, question_count, token, is_active, education_level, shuffle_questions, shuffle_options, school_access, form_url, questions(id, points)');
-    if (error) console.error("Error fetching exams:", error);
-    if(!data) return [];
+    const data = await fetchAll('subjects', 'id, name, duration, question_count, token, is_active, education_level, shuffle_questions, shuffle_options, school_access, form_url, questions(id, points)');
+    if (!data) return [];
     return data.map(d => ({
         id: d.id, title: d.name, subject: d.name, durationMinutes: d.duration, 
         questionCount: d.questions?.length || 0,
@@ -148,7 +168,10 @@ export const db = {
     }, { onConflict: 'exam_id,peserta_id' });
   },
   getAllResults: async (): Promise<ExamResult[]> => {
-    const { data: relData, error: relError } = await supabase.from('results').select('*, students(name), subjects(name)');
+    let relData = null, relError = null;
+    try {
+        relData = await fetchAll('results', '*, students(name), subjects(name)');
+    } catch(e) { relError = e; }
     
     if (!relError && relData) {
         return relData.map(d => ({
@@ -161,13 +184,12 @@ export const db = {
     console.warn("Relational query failed, falling back to manual join.", relError);
 
     // Manual join Fallback
-    const { data, error } = await supabase.from('results').select('*');
-    if (error) console.error("Error fetching results:", error);
+    const data = await fetchAll('results', '*');
     if (!data) return [];
 
-    const [{ data: students }, { data: subjects }] = await Promise.all([
-        supabase.from('students').select('id, name'),
-        supabase.from('subjects').select('id, name')
+    const [students, subjects] = await Promise.all([
+        fetchAll('students', 'id, name'),
+        fetchAll('subjects', 'id, name')
     ]);
 
     return data.map(d => ({
@@ -178,11 +200,10 @@ export const db = {
     }));
   },
   getUsers: async (): Promise<User[]> => {
-    const { data: students, error: studentError } = await supabase.from('students').select('*, student_exam_mapping(id, subject_id, exam_date, session, room)');
-    const { data: staff, error: staffError } = await supabase.from('staff').select('*');
-    
-    if (studentError) console.error("Error fetching students:", studentError);
-    if (staffError) console.error("Error fetching staff:", staffError);
+    let students: any[] = [];
+    let staff: any[] = [];
+    try { students = await fetchAll('students', '*, student_exam_mapping(id, subject_id, exam_date, session, room)'); } catch(e) { console.error("Error fetching students:", e); }
+    try { staff = await fetchAll('staff', '*'); } catch(e) { console.error("Error fetching staff:", e); }
 
     let allUsers: User[] = [];
     if(students) {
@@ -231,8 +252,8 @@ export const db = {
   },
   unblockAllUsers: async (): Promise<void> => {},
   getLightweightMonitoringData: async (): Promise<any> => {
-    const { data: students } = await supabase.from('students').select('id, name, school, room, is_login');
-    const { data: results } = await supabase.from('results').select('id, exam_id, peserta_id, status');
+    const students = await fetchAll('students', 'id, name, school, room, is_login');
+    const results = await fetchAll('results', 'id, exam_id, peserta_id, status');
     return { students: students || [], results: results || [] };
   },
   updateUser: async (id: string, user: Partial<User>) => {
@@ -250,7 +271,7 @@ export const db = {
     });
   },
   getStaff: async (): Promise<User[]> => {
-    const { data } = await supabase.from('staff').select('*');
+    const data = await fetchAll('staff', '*');
     if(!data) return [];
     return data.map(d => ({
         id: d.id, name: d.name, username: d.username, password: d.password, role: d.role as UserRole,
@@ -273,32 +294,36 @@ export const db = {
       await supabase.from('staff').delete().eq('id', id);
   },
   deleteStudentMappingBatch: async (studentIds: string[], examId: string, examDate: string, session: string, room: string) => {
-      let query = supabase.from('student_exam_mapping')
-          .delete()
-          .in('student_id', studentIds)
-          .eq('subject_id', examId)
-          .eq('exam_date', examDate || '')
-          .eq('session', session || '')
-          .eq('room', room || '');
-          
-      const { error } = await query;
-      if (error) throw new Error(error.message);
+      const chunkSize = 200;
+      for (let i = 0; i < studentIds.length; i += chunkSize) {
+          const chunk = studentIds.slice(i, i + chunkSize);
+          const { error } = await supabase.from('student_exam_mapping')
+              .delete()
+              .in('student_id', chunk)
+              .eq('subject_id', examId)
+              .eq('exam_date', examDate || '')
+              .eq('session', session || '')
+              .eq('room', room || '');
+          if (error) throw new Error(error.message);
+      }
   },
   updateStudentMappingBatch: async (studentIds: string[], oldMapping: any, newMapping: any) => {
-      let query = supabase.from('student_exam_mapping')
-          .update({
-              exam_date: newMapping.date || '',
-              session: newMapping.session || '',
-              room: newMapping.room || ''
-          })
-          .in('student_id', studentIds)
-          .eq('subject_id', oldMapping.examId)
-          .eq('exam_date', oldMapping.date || '')
-          .eq('session', oldMapping.session || '')
-          .eq('room', oldMapping.room || '');
-          
-      const { error } = await query;
-      if (error) throw new Error(error.message);
+      const chunkSize = 200;
+      for (let i = 0; i < studentIds.length; i += chunkSize) {
+          const chunk = studentIds.slice(i, i + chunkSize);
+          const { error } = await supabase.from('student_exam_mapping')
+              .update({
+                  exam_date: newMapping.date || '',
+                  session: newMapping.session || '',
+                  room: newMapping.room || ''
+              })
+              .in('student_id', chunk)
+              .eq('subject_id', oldMapping.examId)
+              .eq('exam_date', oldMapping.date || '')
+              .eq('session', oldMapping.session || '')
+              .eq('room', oldMapping.room || '');
+          if (error) throw new Error(error.message);
+      }
   },
   resetCheatingCount: async (id: string) => {
       await supabase.from('results').update({ violation_count: 0 }).eq('id', id);
@@ -315,7 +340,11 @@ export const db = {
   },
   forceFinishStudents: async (studentIds: string[]) => {
       if (!studentIds || studentIds.length === 0) return;
-      await supabase.from('results').update({ status: 'finished' }).eq('status', 'working').in('student_id', studentIds);
+      const chunkSize = 200;
+      for (let i = 0; i < studentIds.length; i += chunkSize) {
+          const chunk = studentIds.slice(i, i + chunkSize);
+          await supabase.from('results').update({ status: 'finished' }).eq('status', 'working').in('peserta_id', chunk);
+      }
   },
   updateExamMapping: async (id: string, token: string, durationMinutes: number, examDate: string, session: string, schoolAccess: string[], shuffleQuestions: boolean, shuffleOptions: boolean, formUrl?: string) => {
       await supabase.from('subjects').update({ 
@@ -336,10 +365,14 @@ export const db = {
       // It's tricky to delete based on json content ID, standard supabase might need custom query
   },
   importStudents: async (users: any[]) => {
-      await supabase.from('students').insert(users.map(u => ({
-          name: u.name, school: u.school, nomor_peserta: u.nomorPeserta,
-          password: u.password, class: u.class, room: u.room, gender: u.gender, npsn: u.npsn
-      })));
+      const chunkSize = 500;
+      for (let i = 0; i < users.length; i += chunkSize) {
+          const chunk = users.slice(i, i + chunkSize);
+          await supabase.from('students').insert(chunk.map(u => ({
+              name: u.name, school: u.school, nomor_peserta: u.nomorPeserta,
+              password: u.password, class: u.class, room: u.room, gender: u.gender, npsn: u.npsn
+          })));
+      }
   },
   getResultAnswers: async (id: string): Promise<any[]> => {
       const { data } = await supabase.from('results').select('answers').eq('id', id).single();
@@ -349,20 +382,24 @@ export const db = {
       await supabase.from('results').update({ score, answers }).eq('id', id);
   },
   updateStudentMapping: async (studentIds: string[], data: { examId: string, examDate?: string, room?: string, session?: string }) => {
-      await supabase.from('student_exam_mapping')
-          .delete()
-          .in('student_id', studentIds)
-          .eq('subject_id', data.examId);
+      const chunkSize = 200;
+      for (let i = 0; i < studentIds.length; i += chunkSize) {
+          const chunk = studentIds.slice(i, i + chunkSize);
+          await supabase.from('student_exam_mapping')
+              .delete()
+              .in('student_id', chunk)
+              .eq('subject_id', data.examId);
 
-      const records = studentIds.map(studentId => ({
-          student_id: studentId,
-          subject_id: data.examId,
-          exam_date: data.examDate || '',
-          room: data.room || '',
-          session: data.session || ''
-      }));
-      const { error } = await supabase.from('student_exam_mapping').insert(records);
-      if (error) throw new Error(error.message);
+          const records = chunk.map(studentId => ({
+              student_id: studentId,
+              subject_id: data.examId,
+              exam_date: data.examDate || '',
+              room: data.room || '',
+              session: data.session || ''
+          }));
+          const { error } = await supabase.from('student_exam_mapping').insert(records);
+          if (error) throw new Error(error.message);
+      }
   },
   deleteUserResults: async (userId: string) => {
       await supabase.from('results').delete().eq('peserta_id', userId);
